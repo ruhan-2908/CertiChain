@@ -1,0 +1,33 @@
+spring.application.name=certichain-backend
+
+# ---- PostgreSQL ----
+# Make sure PostgreSQL is running locally.
+# Create the database first:
+#   createdb certichain
+#
+# Replace the username/password with your LOCAL PostgreSQL credentials.
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/certichain
+spring.datasource.username=YOUR_POSTGRES_USERNAME
+spring.datasource.password=YOUR_POSTGRES_PASSWORD
+
+# ---- JPA / Hibernate ----
+# 'update' is convenient for local development.
+# Consider Flyway/Liquibase + 'validate' for production.
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.open-in-view=false
+
+# ---- JWT ----
+# Generate your OWN secret. Do not use the example value.
+#
+# Generate one with:
+#   openssl rand -base64 32
+#
+# Paste the generated value below.
+certichain.security.jwt.secret=YOUR_BASE64_JWT_SECRET
+certichain.security.jwt.expiration-ms=86400000
+
+# ---- Server ----
+server.port=8080
