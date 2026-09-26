@@ -2,8 +2,8 @@
 
 A platform where an institution issues certificates, generates a SHA-256
 fingerprint of each one, records that fingerprint on a blockchain, and lets
-anyone verify whether a certificate is **AUTHENTIC**, **TAMPERED**,
-**REVOKED**, or **NOT FOUND** — without needing to trust a central server.
+anyone verify whether a certificate is **AUTHENTIC**, **REVOKED**, or
+**NOT FOUND** — without needing to trust a central server.
 
 
 ## 1. How the system works (read this first)
@@ -11,28 +11,25 @@ anyone verify whether a certificate is **AUTHENTIC**, **TAMPERED**,
 ### Issuing a certificate
 ```
 Admin logs in
-  -> enters student + certificate details
-  -> Backend generates a unique Certificate ID
-  -> Backend generates a PDF certificate (with embedded QR code)
-  -> PDF is saved to file storage
-  -> Backend computes SHA-256 hash of the PDF
+  -> enters student + certificate details (course name, issue date)
+  -> Admin uploads the certificate PDF (already issued by the institution)
+  -> Backend computes SHA-256 hash of the uploaded file
+  -> Backend stores the file
   -> Backend calls the smart contract: registerCertificate(certId, hash, issuer)
   -> Blockchain returns a transaction hash
   -> Backend saves certificate metadata + tx hash in PostgreSQL
-  -> Certificate is now issued and downloadable
+  -> Certificate is now issued
 ```
 
 ### Verifying a certificate
 ```
-Anyone (no login required) enters a Certificate ID or scans its QR code
-  -> Backend looks up the certificate record in PostgreSQL
-  -> Backend calls the smart contract: verifyCertificate(certId)
-  -> If the person also uploads a PDF file:
-       Backend re-computes its SHA-256 hash
-       and compares it against the hash stored on-chain
-  -> Backend checks the on-chain revocation status
-  -> Result: AUTHENTIC / TAMPERED / REVOKED / NOT FOUND
+Anyone (no login required) uploads the certificate PDF file
+  -> Backend computes its SHA-256 hash
+  -> Backend checks whether that exact hash is on record
+  -> Result: AUTHENTIC (found, active) / REVOKED (found, revoked) / NOT_FOUND (no match)
 ```
+
+(No Certificate ID entry, no QR scanning — upload is the only path in.)
 
 The key idea: **PostgreSQL stores application data** (users, metadata, logs),
 **file storage stores the actual PDFs**, and **the blockchain only stores the
@@ -48,7 +45,7 @@ tamper-evident hash + status**. The PDF itself is never put on-chain.
 | Auth | Spring Security + JWT | Backend |
 | Database | PostgreSQL + JPA/Hibernate | Backend |
 | Hashing | SHA-256 (built into Java, `MessageDigest`) | Backend |
-| PDF + QR | PDF generation library (e.g. OpenPDF/iText) + ZXing for QR | Backend |
+| File handling | Multipart file upload/storage (Spring's built-in `MultipartFile`) | Backend |
 | Smart Contract | Solidity | Blockchain |
 | Contract Testing/Deploy | Hardhat, local EVM or public testnet (e.g. Sepolia) | Blockchain |
 | Backend <-> Contract bridge | Web3j | Blockchain |
@@ -65,22 +62,23 @@ build. Use a local EVM (Hardhat network) or a free testnet, never mainnet.
 ### Backend — Person A (project owner / integration point)
 - Auth & Authorization module (**done** — see `backend/certichain-backend`)
 - User & Student Management (entities + relationships + CRUD)
-- Certificate Management module: create certificate records, generate
-  Certificate IDs, store metadata, handle status/revocation flags
+- Certificate Management module: admin uploads an existing certificate PDF
+  + metadata (no generation), backend hashes and stores the exact uploaded
+  file, tracks status/revocation, and supports "replacing" a certificate by
+  revoking the old one and linking a new one (never silently editing a past
+  record). Students have read-only access to their own certificates.
 - Database schema design (`users`, `students`, `certificates`,
   `verification_logs` — see `docs/api-contract.md` for exact fields)
 - Owns integration: wiring Blockchain Person B's `BlockchainService` and
-  Backend Person B's hashing/PDF/QR services into one working flow
+  Backend Person B's verification service into one working flow
 
 ### Backend — Person B
-- Certificate Generation: produce a professional PDF with cert details +
-  embedded QR code pointing to the public verification page
-- Hashing Service: SHA-256 fingerprint generation + comparison logic
-- File Storage: save/retrieve certificate PDFs (local disk for dev is fine)
-- Verification Service: combines DB lookup + hash comparison + blockchain
-  check + revocation check into the final AUTHENTIC/TAMPERED/REVOKED/NOT
-  FOUND result
-- QR Module (ZXing): generate the QR codes used in the PDF
+- Verification Service reuses the existing HashingService and
+  FileStorageService from the Certificate module — don't reimplement
+  hashing or file access.
+- Verification Service: hashes the uploaded file, looks up the matching
+  certificate, checks revocation status, and returns AUTHENTIC/REVOKED/
+  NOT_FOUND
 
 > Backend A and B should agree on the `Certificate` entity shape on day 1 so
 > B isn't blocked waiting for A's schema.
@@ -89,9 +87,8 @@ build. Use a local EVM (Hardhat network) or a free testnet, never mainnet.
 - Admin dashboard: login, issue new certificate (form), view/revoke existing
   certificates, view audit/verification logs
 - Student view: see their own issued certificates, download PDF
-- Public verification page (no login): enter Certificate ID or scan QR,
-  optionally upload a PDF to check against, show AUTHENTIC/TAMPERED/
-  REVOKED/NOT FOUND result clearly
+- Public verification page (no login): upload a PDF and show the
+  AUTHENTIC/REVOKED/NOT FOUND result clearly
 - Build against `docs/api-contract.md` — don't wait for backend to be 100%
   finished, the contract is the source of truth for request/response shapes
 

@@ -1,5 +1,14 @@
 # React + TypeScript + Vite
 
+### 1. Public Verification Page (no login — this is the most important page)
+- A single file upload control — the visitor uploads the certificate PDF
+  they want to check. No Certificate ID field, no QR scanner — upload is
+  the only way in.
+- Calls `POST /api/verify/upload` with the file.
+- Clearly show one of three states: **AUTHENTIC / REVOKED / NOT_FOUND** —
+  make these visually distinct (color-coded), this is the payoff moment of
+  the whole demo.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:
