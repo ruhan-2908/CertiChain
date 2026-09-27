@@ -153,7 +153,8 @@ Implementation notes for whoever builds this:
   certificates should never produce the same SHA-256 hash — if they
   somehow do, something is wrong upstream).
 - Log every check to `verification_logs` (certificate_id if matched,
-  method = `FILE_UPLOAD`, result, timestamp) regardless of outcome.
+  method = `FILE_UPLOAD`, result, timestamp) regardless of outcome when that
+  table/entity exists; otherwise leave a `// TODO:` and add it later.
 
 ---
 
