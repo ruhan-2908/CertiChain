@@ -17,7 +17,9 @@ public record CertificateResponse(
         String blockchainTxHash,
         String blockchainNetwork,
         String contractAddress,
-        String status
+        String status,
+        String supersedesCertificateId,
+        String supersededByCertificateId
 ) {
     public static CertificateResponse from(Certificate certificate) {
         return new CertificateResponse(
@@ -33,7 +35,9 @@ public record CertificateResponse(
                 certificate.getBlockchainTxHash(),
                 certificate.getBlockchainNetwork(),
                 certificate.getContractAddress(),
-                certificate.getStatus().name()
+                certificate.getStatus().name(),
+                certificate.getSupersedesCertificateId(),
+                certificate.getSupersededByCertificateId()
         );
     }
 }

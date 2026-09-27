@@ -38,6 +38,7 @@ public class Certificate {
 
     private String documentUrl;
 
+    @Column(unique = true)
     private String documentHash;
 
     private String blockchainTxHash;
@@ -50,6 +51,10 @@ public class Certificate {
     @Column(nullable = false)
     @Builder.Default
     private CertificateStatus status = CertificateStatus.ACTIVE;
+
+    private String supersedesCertificateId;
+
+    private String supersededByCertificateId;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default

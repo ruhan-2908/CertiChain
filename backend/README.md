@@ -114,16 +114,16 @@ You should get back the logged-in user's id/name/email/role. If you strip the
    the `User` via `CustomUserDetailsService`, and puts it into Spring Security's
    context — so `@AuthenticationPrincipal User user` works in any controller,
    and `hasRole('ADMIN')` / `@PreAuthorize` will work in later modules.
-5. `SecurityConfig.PUBLIC_ROUTES` already reserves `/api/verify/**` and
-   `/api/certificates/*/verify` as open, no-login routes — matching your plan's
-   requirement that public verification doesn't require login. Add real
-   endpoints there later without touching security config again.
+5. `SecurityConfig.PUBLIC_ROUTES` reserves `/api/verify/**` as the open,
+  no-login route for upload-only public verification. Keep future verification
+  behavior under that route without changing the authentication setup.
 
 ## Wiring this to the next modules
 
-- **Certificate Management / CRUD**: put endpoints under `/api/certificates/**`
-  (protected, ADMIN-only for create/revoke) and `/api/certificates/*/verify`
-  (already public).
+- **Certificate Management / CRUD**: put protected endpoints under
+  `/api/certificates/**` (ADMIN-only for create/replace/delete/revoke).
+- **Verification**: use only `POST /api/verify/upload` with a PDF upload; it is
+  public and does not require login.
 - **Admin-only routes**: prefix with `/api/admin/**` — the security config
   already restricts that path to `ROLE_ADMIN`, or use `@PreAuthorize("hasRole('ADMIN')")`
   on individual controller methods (method security is already enabled).

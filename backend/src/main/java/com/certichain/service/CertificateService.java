@@ -1,11 +1,12 @@
 package com.certichain.service;
 
 import com.certichain.dto.CertificateResponse;
-import com.certichain.dto.CreateCertificateRequest;
 import com.certichain.dto.RevokeCertificateResponse;
 import com.certichain.entity.Certificate;
 import com.certichain.entity.CertificateStatus;
+import com.certichain.entity.Role;
 import com.certichain.entity.Student;
+import com.certichain.entity.User;
 import com.certichain.exception.ApiException;
 import com.certichain.repository.CertificateRepository;
 import com.certichain.repository.StudentRepository;
@@ -13,10 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -26,19 +25,26 @@ public class CertificateService {
 
     private final CertificateRepository certificateRepository;
     private final StudentRepository studentRepository;
+    private final HashingService hashingService;
+    private final FileStorageService fileStorageService;
 
     @Transactional
-    public CertificateResponse createCertificate(CreateCertificateRequest request) {
-        Student student = studentRepository.findById(request.studentId())
+    public CertificateResponse createCertificate(Long studentId, String courseName,
+                                                 LocalDate issueDate, MultipartFile file) {
+        Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                        "No student profile found with id " + request.studentId()));
+                        "No student profile found with id " + studentId));
 
+        return CertificateResponse.from(issueCertificate(student, courseName, issueDate, file, null));
+    }
+
+    private Certificate issueCertificate(Student student, String courseName,
+                                         LocalDate issueDate, MultipartFile file,
+                                         String supersedesCertificateId) {
         String certificateId = generateCertificateId();
+        String documentHash = hashingService.sha256Hex(file);
+        String documentUrl = fileStorageService.store(file, certificateId);
 
-        // TODO: Replace with the real PDF generation service when that module exists.
-        String documentUrl = generatePlaceholderDocumentUrl(certificateId);
-        // TODO: Replace with the SHA-256 hash of the generated PDF.
-        String documentHash = generatePlaceholderHash(certificateId, request);
         // TODO: Replace with BlockchainService.registerCertificateHash(certificateId, documentHash).
         String blockchainTxHash = "PENDING_BLOCKCHAIN_INTEGRATION";
         String blockchainNetwork = "not-yet-integrated";
@@ -47,17 +53,18 @@ public class CertificateService {
         Certificate certificate = Certificate.builder()
                 .certificateId(certificateId)
                 .student(student)
-                .courseName(request.courseName())
-                .issueDate(request.issueDate())
+                .courseName(courseName)
+                .issueDate(issueDate)
                 .documentUrl(documentUrl)
                 .documentHash(documentHash)
                 .blockchainTxHash(blockchainTxHash)
                 .blockchainNetwork(blockchainNetwork)
                 .contractAddress(contractAddress)
                 .status(CertificateStatus.ACTIVE)
+                .supersedesCertificateId(supersedesCertificateId)
                 .build();
 
-        return CertificateResponse.from(certificateRepository.save(certificate));
+            return certificateRepository.save(certificate);
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +87,35 @@ public class CertificateService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public byte[] getFileBytes(String certificateId, User user) {
+        Certificate certificate = findCertificate(certificateId);
+        boolean owner = certificate.getStudent().getUser().getId().equals(user.getId());
+        if (user.getRole() != Role.ADMIN && !owner) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this file");
+        }
+        return fileStorageService.loadAsBytes(certificateId);
+    }
+
+    @Transactional
+    public CertificateResponse replaceCertificate(String oldCertificateId, String courseName,
+                                                   LocalDate issueDate, MultipartFile newFile) {
+        Certificate oldCertificate = findCertificate(oldCertificateId);
+        if (oldCertificate.getStatus() == CertificateStatus.REVOKED) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Cannot replace a certificate that is already revoked");
+        }
+
+        Certificate newCertificate = issueCertificate(oldCertificate.getStudent(), courseName,
+                issueDate, newFile, oldCertificateId);
+        oldCertificate.setStatus(CertificateStatus.REVOKED);
+        oldCertificate.setSupersededByCertificateId(newCertificate.getCertificateId());
+        certificateRepository.save(oldCertificate);
+
+        // TODO: Revoke the old on-chain record via BlockchainService.revokeCertificate(...).
+        return CertificateResponse.from(newCertificate);
+    }
+
     @Transactional
     public RevokeCertificateResponse revoke(String certificateId) {
         Certificate certificate = findCertificate(certificateId);
@@ -94,6 +130,14 @@ public class CertificateService {
 
         // TODO: Also call BlockchainService.revokeCertificate(certificateId) when blockchain integration exists.
         return new RevokeCertificateResponse(certificateId, CertificateStatus.REVOKED.name());
+    }
+
+    @Transactional
+    public void deleteCertificate(String certificateId) {
+        Certificate certificate = findCertificate(certificateId);
+        certificateRepository.delete(certificate);
+        // Blockchain records cannot be removed. Revoke instead if the certificate may be in circulation.
+        fileStorageService.delete(certificateId);
     }
 
     private Certificate findCertificate(String certificateId) {
@@ -117,22 +161,4 @@ public class CertificateService {
                 "Could not generate a unique certificate id");
     }
 
-    private String generatePlaceholderDocumentUrl(String certificateId) {
-        return "/files/" + certificateId + ".pdf";
-    }
-
-    private String generatePlaceholderHash(String certificateId, CreateCertificateRequest request) {
-        String source = certificateId
-                + request.studentId()
-                + request.courseName()
-                + request.issueDate();
-
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(source.getBytes(StandardCharsets.UTF_8));
-            return java.util.HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 algorithm is not available", exception);
-        }
-    }
 }
