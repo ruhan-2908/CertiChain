@@ -5,7 +5,8 @@ const { ethers } = require("ethers");
 
 const RPC_URL = "http://127.0.0.1:8545";
 const CHAIN_ID = 31337;
-
+const BACKEND_PRIVATE_KEY =
+  "0x59c6995e998f97a5a0044976f0945389dc9e86dae88c7a4e4d9e7e3f2a4b6b4";
 const rootDir = __dirname ? path.resolve(__dirname, "..") : process.cwd();
 const artifactPath = path.join(
   rootDir,
@@ -18,6 +19,7 @@ const artifactPath = path.join(
 const deploymentsDir = path.join(rootDir, "deployments");
 const deploymentPath = path.join(deploymentsDir, "local.json");
 const abiPath = path.join(deploymentsDir, "local-abi.json");
+const backendEnvPath = path.join(deploymentsDir, "backend.env");
 
 let hardhatNode;
 
@@ -173,6 +175,15 @@ hardhatNode.stderr.on("data", (data) => {
     abiPath,
     JSON.stringify(artifact.abi, null, 2)
   );
+  const backendEnv = `BLOCKCHAIN_RPC_URL=${RPC_URL}
+BLOCKCHAIN_CHAIN_ID=${CHAIN_ID}
+BLOCKCHAIN_CONTRACT_ADDRESS=${contractAddress}
+BLOCKCHAIN_BACKEND_ADDRESS=${backendAddress}
+BLOCKCHAIN_BACKEND_PRIVATE_KEY=${BACKEND_PRIVATE_KEY}
+BLOCKCHAIN_ABI_PATH=deployments/local-abi.json
+`;
+
+fs.writeFileSync(backendEnvPath, backendEnv);
 
   console.log("\n==========================================");
   console.log(" Local Blockchain Setup Complete");
@@ -185,6 +196,7 @@ hardhatNode.stderr.on("data", (data) => {
   console.log("Backend Issuer :", backendAuthorized);
   console.log("ABI            :", abiPath);
   console.log("Deployment     :", deploymentPath);
+  console.log("Backend Config :", backendEnvPath);
   console.log("==========================================\n");
 
   console.log("ABI:");
