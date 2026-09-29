@@ -31,3 +31,8 @@ certichain.security.jwt.expiration-ms=86400000
 
 # ---- Server ----
 server.port=8080
+
+# ---- Blockchain / Web3j (Local Hardhat Node) ----
+certichain.blockchain.rpc-url=http://127.0.0.1:8545
+certichain.blockchain.contract-address=YOUR_DEPLOYED_CONTRACT_ADDRESS
+certichain.blockchain.private-key=YOUR_ISSUER_ACCOUNT_PRIVATE_KEY
