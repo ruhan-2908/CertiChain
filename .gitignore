@@ -50,3 +50,6 @@ logs/
 
 
 backend/src/main/resources/application.propertiesbackend/storage/
+
+# Generated certificate files
+backend/storage/
