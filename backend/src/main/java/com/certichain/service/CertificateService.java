@@ -11,6 +11,7 @@ import com.certichain.exception.ApiException;
 import com.certichain.repository.CertificateRepository;
 import com.certichain.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,12 @@ public class CertificateService {
     private final StudentRepository studentRepository;
     private final HashingService hashingService;
     private final FileStorageService fileStorageService;
+    private final BlockchainService blockchainService;
+
+    @Value("${certichain.blockchain.contract-address}")
+    private String contractAddress;
+
+    private static final String BLOCKCHAIN_NETWORK = "hardhat-local";
 
     @Transactional
     public CertificateResponse createCertificate(Long studentId, String courseName,
@@ -45,10 +52,13 @@ public class CertificateService {
         String documentHash = hashingService.sha256Hex(file);
         String documentUrl = fileStorageService.store(file, certificateId);
 
-        // TODO: Replace with BlockchainService.registerCertificateHash(certificateId, documentHash).
-        String blockchainTxHash = "PENDING_BLOCKCHAIN_INTEGRATION";
-        String blockchainNetwork = "not-yet-integrated";
-        String contractAddress = "not-yet-integrated";
+        String blockchainTxHash;
+        try {
+            blockchainTxHash = blockchainService.registerCertificateHash(certificateId, documentHash);
+        } catch (Exception exception) {
+            fileStorageService.delete(certificateId);
+            throw exception;
+        }
 
         Certificate certificate = Certificate.builder()
                 .certificateId(certificateId)
@@ -58,7 +68,7 @@ public class CertificateService {
                 .documentUrl(documentUrl)
                 .documentHash(documentHash)
                 .blockchainTxHash(blockchainTxHash)
-                .blockchainNetwork(blockchainNetwork)
+                .blockchainNetwork(BLOCKCHAIN_NETWORK)
                 .contractAddress(contractAddress)
                 .status(CertificateStatus.ACTIVE)
                 .supersedesCertificateId(supersedesCertificateId)
@@ -125,10 +135,11 @@ public class CertificateService {
                     "Certificate " + certificateId + " is already revoked");
         }
 
+        blockchainService.revokeCertificate(certificateId);
+
         certificate.setStatus(CertificateStatus.REVOKED);
         certificateRepository.save(certificate);
 
-        // TODO: Also call BlockchainService.revokeCertificate(certificateId) when blockchain integration exists.
         return new RevokeCertificateResponse(certificateId, CertificateStatus.REVOKED.name());
     }
 

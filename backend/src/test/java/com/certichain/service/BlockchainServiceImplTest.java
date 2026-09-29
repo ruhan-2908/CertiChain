@@ -39,7 +39,7 @@ public class BlockchainServiceImplTest {
     @Test
     @DisplayName("Test blockchain registration, verification, and revocation flow")
     void testRegisterVerifyAndRevokeFlow() {
-        String certificateId = "CERT-TEST-001";
+        String certificateId = "CERT-TEST-" + System.currentTimeMillis();
         // 64-character hex SHA-256 hash (empty string SHA-256)
         String validSha256Hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
