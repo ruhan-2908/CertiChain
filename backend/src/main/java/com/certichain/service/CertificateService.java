@@ -33,7 +33,7 @@ public class CertificateService {
     @Value("${certichain.blockchain.contract-address}")
     private String contractAddress;
 
-    private static final String BLOCKCHAIN_NETWORK = "hardhat-local";
+    private static final String BLOCKCHAIN_NETWORK = "sepolia";
 
     @Transactional
     public CertificateResponse createCertificate(Long studentId, String courseName,
