@@ -104,14 +104,14 @@ public class CertificateServiceTest {
 
         assertNotNull(response);
         assertEquals(mockTxHash, response.blockchainTxHash());
-        assertEquals("hardhat-local", response.blockchainNetwork());
+        assertEquals("sepolia", response.blockchainNetwork());
         assertEquals(contractAddress, response.contractAddress());
         assertEquals(mockHash, response.documentHash());
         assertEquals("ACTIVE", response.status());
 
         Certificate saved = certCaptor.getValue();
         assertEquals(mockTxHash, saved.getBlockchainTxHash());
-        assertEquals("hardhat-local", saved.getBlockchainNetwork());
+        assertEquals("sepolia", saved.getBlockchainNetwork());
         assertEquals(contractAddress, saved.getContractAddress());
         assertEquals(mockHash, saved.getDocumentHash());
 
