@@ -1,6 +1,4 @@
-export type CertificateStatus =
-  | "ACTIVE"
-  | "REVOKED";
+export type CertificateStatus = "ACTIVE" | "REVOKED";
 
 export type VerificationResult =
   | "AUTHENTIC"
@@ -12,12 +10,15 @@ export interface CreateCertificateRequest {
   studentId: number;
   courseName: string;
   issueDate: string;
+  file: File;
 }
 
 export interface Certificate {
+  id: number;
   certificateId: string;
   studentId: number;
   studentName: string;
+  rollNumber: string;
   courseName: string;
   issueDate: string;
   documentUrl: string;
@@ -26,6 +27,8 @@ export interface Certificate {
   blockchainNetwork: string;
   contractAddress: string;
   status: CertificateStatus;
+  supersedesCertificateId: string | null;
+  supersededByCertificateId: string | null;
 }
 
 export interface RevokeCertificateResponse {
@@ -33,17 +36,10 @@ export interface RevokeCertificateResponse {
   status: "REVOKED";
 }
 
-export interface VerifyCertificateResponse {
-  certificateId: string;
+export interface VerificationResponse {
   result: VerificationResult;
-  studentName?: string;
-  courseName?: string;
-  issueDate?: string;
-}
-
-export interface VerifyUploadResponse {
   certificateId: string;
-  result: VerificationResult;
-  uploadedHash: string;
-  registeredHash: string;
+  studentName: string;
+  courseName: string;
+  issueDate: string;
 }
