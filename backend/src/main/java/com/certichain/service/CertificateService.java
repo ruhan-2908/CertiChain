@@ -1,5 +1,14 @@
 package com.certichain.service;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.certichain.dto.CertificateResponse;
 import com.certichain.dto.RevokeCertificateResponse;
 import com.certichain.entity.Certificate;
@@ -10,15 +19,8 @@ import com.certichain.entity.User;
 import com.certichain.exception.ApiException;
 import com.certichain.repository.CertificateRepository;
 import com.certichain.repository.StudentRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -159,7 +161,7 @@ public class CertificateService {
 
     private String generateCertificateId() {
         int year = LocalDate.now().getYear();
-        long sequence = certificateRepository.count() + 1;
+        long sequence = certificateRepository.count() + 3;
 
         for (int attempt = 0; attempt < 100; attempt++) {
             String certificateId = String.format("CERT-%d-%06d", year, sequence + attempt);

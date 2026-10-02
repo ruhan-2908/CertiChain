@@ -1,6 +1,7 @@
 package com.certichain.config;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,7 +21,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -34,13 +35,14 @@ public class SecurityConfig {
     // Routes that must stay open with no login: public certificate verification (module 5+6)
     // and auth endpoints themselves.
     private static final String[] PUBLIC_ROUTES = {
-            "/api/auth/register",
-            "/api/auth/login",
-            "/api/verify/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html"
-    };
+        "/api/auth/register",
+        "/api/auth/login",
+        "/api/verify/**",
+        "/files/**",
+        "/v3/api-docs/**",
+        "/swagger-ui/**",
+        "/swagger-ui.html"
+};
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
