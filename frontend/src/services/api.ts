@@ -7,10 +7,8 @@ import type {
 
 import type {
   Certificate,
-  CreateCertificateRequest,
   RevokeCertificateResponse,
-  VerifyCertificateResponse,
-  VerifyUploadResponse,
+  VerificationResponse,
 } from "../types/certificate";
 
 const API_BASE_URL = "http://localhost:8080";
@@ -72,9 +70,7 @@ async function request<T>(
   return response.json();
 }
 
-/* =========================
-   AUTH
-========================= */
+/* ---------------- AUTH ---------------- */
 
 export async function login(
   data: LoginRequest,
@@ -106,18 +102,41 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   );
 }
 
-/* =========================
-   CERTIFICATES
-========================= */
+/* ---------------- CERTIFICATES ---------------- */
 
 export async function createCertificate(
-  data: CreateCertificateRequest,
+  studentId: number,
+  courseName: string,
+  issueDate: string,
+  file: File,
 ): Promise<Certificate> {
+  const formData = new FormData();
+
+  formData.append(
+    "studentId",
+    String(studentId),
+  );
+
+  formData.append(
+    "courseName",
+    courseName,
+  );
+
+  formData.append(
+    "issueDate",
+    issueDate,
+  );
+
+  formData.append(
+    "file",
+    file,
+  );
+
   return request<Certificate>(
     "/api/certificates",
     {
       method: "POST",
-      body: JSON.stringify(data),
+      body: formData,
     },
   );
 }
@@ -142,6 +161,41 @@ export async function getMyCertificates(): Promise<Certificate[]> {
   );
 }
 
+/* ---------------- DOWNLOAD ---------------- */
+
+export async function downloadCertificate(
+  certificateId: string,
+): Promise<Blob> {
+  const token = getToken();
+
+  const headers = new Headers();
+
+  if (token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`,
+    );
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/certificates/${encodeURIComponent(certificateId)}/file`,
+    {
+      method: "GET",
+      headers,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download certificate (${response.status})`,
+    );
+  }
+
+  return response.blob();
+}
+
+/* ---------------- REVOKE ---------------- */
+
 export async function revokeCertificate(
   certificateId: string,
 ): Promise<RevokeCertificateResponse> {
@@ -153,28 +207,28 @@ export async function revokeCertificate(
   );
 }
 
-/* =========================
-   PUBLIC VERIFICATION
-========================= */
+/* ---------------- VERIFICATION ---------------- */
 
 export async function verifyCertificate(
-  certificateId: string,
-): Promise<VerifyCertificateResponse> {
-  return request<VerifyCertificateResponse>(
-    `/api/verify/${encodeURIComponent(certificateId)}`,
-  );
-}
-
-export async function verifyCertificateFile(
-  certificateId: string,
   file: File,
-): Promise<VerifyUploadResponse> {
+  certificateId?: string,
+): Promise<VerificationResponse> {
   const formData = new FormData();
 
-  formData.append("file", file);
+  formData.append(
+    "file",
+    file,
+  );
 
-  return request<VerifyUploadResponse>(
-    `/api/verify/${encodeURIComponent(certificateId)}/upload`,
+  if (certificateId?.trim()) {
+    formData.append(
+      "certificateId",
+      certificateId.trim(),
+    );
+  }
+
+  return request<VerificationResponse>(
+    "/api/verify/upload",
     {
       method: "POST",
       body: formData,

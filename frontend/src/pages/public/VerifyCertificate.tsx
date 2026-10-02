@@ -1,55 +1,66 @@
 import { useState } from "react";
-import type { ChangeEvent } from "react";
+import type { FormEvent } from "react";
 import {
-  ArrowLeft,
-  CheckCircle2,
-  ShieldAlert,
   ShieldCheck,
   Upload,
   Search,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  HelpCircle,
   FileCheck2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
-import {
-  verifyCertificate,
-  verifyCertificateFile,
-} from "../../services/api";
-
+import { verifyCertificate } from "../../services/api";
 import type {
-  VerifyCertificateResponse,
-  VerifyUploadResponse,
+  VerificationResponse,
+  VerificationResult,
 } from "../../types/certificate";
 
-type VerificationData =
-  | VerifyCertificateResponse
-  | VerifyUploadResponse;
-
 export default function VerifyCertificate() {
-  const navigate = useNavigate();
+  const [certificateId, setCertificateId] =
+    useState("");
 
-  const [certificateId, setCertificateId] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [file, setFile] =
+    useState<File | null>(null);
 
-  const [loadingId, setLoadingId] = useState(false);
-  const [loadingFile, setLoadingFile] = useState(false);
+  const [result, setResult] =
+    useState<VerificationResponse | null>(null);
 
-  const [result, setResult] = useState<VerificationData | null>(null);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(false);
 
-  async function handleIdVerification() {
-    if (!certificateId.trim()) {
-      setError("Please enter a certificate ID.");
+  const [error, setError] =
+    useState("");
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    setError("");
+    setResult(null);
+
+    if (!file) {
+      setError(
+        "Please upload the certificate PDF.",
+      );
       return;
     }
 
-    try {
-      setLoadingId(true);
-      setError("");
-      setResult(null);
+    if (file.type !== "application/pdf") {
+      setError(
+        "Only PDF certificate files are supported.",
+      );
+      return;
+    }
 
+    setLoading(true);
+
+    try {
       const response = await verifyCertificate(
-        certificateId.trim(),
+        file,
+        certificateId,
       );
 
       setResult(response);
@@ -60,404 +71,325 @@ export default function VerifyCertificate() {
           : "Certificate verification failed.",
       );
     } finally {
-      setLoadingId(false);
+      setLoading(false);
     }
   }
 
-  async function handleFileVerification() {
-    if (!certificateId.trim()) {
-      setError("Please enter a certificate ID first.");
-      return;
-    }
-
-    if (!selectedFile) {
-      setError("Please select a certificate PDF.");
-      return;
-    }
-
-    try {
-      setLoadingFile(true);
-      setError("");
-      setResult(null);
-
-      const response = await verifyCertificateFile(
-        certificateId.trim(),
-        selectedFile,
-      );
-
-      setResult(response);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Certificate file verification failed.",
-      );
-    } finally {
-      setLoadingFile(false);
-    }
-  }
-
-  function handleFileChange(
-    event: ChangeEvent<HTMLInputElement>,
+  function getResultConfig(
+    verificationResult: VerificationResult,
   ) {
-    const file = event.target.files?.[0] ?? null;
-
-    setSelectedFile(file);
-    setResult(null);
-    setError("");
-
-    if (file && file.type !== "application/pdf") {
-      setSelectedFile(null);
-      setError("Please select a PDF certificate.");
-    }
-  }
-
-  function getResultTitle() {
-    switch (result?.result) {
+    switch (verificationResult) {
       case "AUTHENTIC":
-        return "Certificate is Authentic";
+        return {
+          title: "Certificate Authentic",
+          description:
+            "The uploaded certificate matches the registered certificate.",
+          icon: CheckCircle2,
+          className:
+            "border-green-200 bg-green-50 text-green-700",
+        };
 
       case "TAMPERED":
-        return "Certificate has been Tampered";
+        return {
+          title: "Certificate Tampered",
+          description:
+            "The uploaded certificate does not match the registered certificate.",
+          icon: XCircle,
+          className:
+            "border-red-200 bg-red-50 text-red-700",
+        };
 
       case "REVOKED":
-        return "Certificate has been Revoked";
+        return {
+          title: "Certificate Revoked",
+          description:
+            "This certificate was previously registered but has been revoked.",
+          icon: AlertTriangle,
+          className:
+            "border-orange-200 bg-orange-50 text-orange-700",
+        };
 
       case "NOT_FOUND":
-        return "Certificate Not Found";
-
-      default:
-        return "";
-    }
-  }
-
-  function getResultDescription() {
-    switch (result?.result) {
-      case "AUTHENTIC":
-        return "The certificate matches the registered blockchain record.";
-
-      case "TAMPERED":
-        return "The uploaded certificate does not match the registered document hash.";
-
-      case "REVOKED":
-        return "This certificate was previously issued but has been revoked.";
-
-      case "NOT_FOUND":
-        return "No certificate with this ID was found in the verification system.";
-
-      default:
-        return "";
-    }
-  }
-
-  function getResultStyles() {
-    switch (result?.result) {
-      case "AUTHENTIC":
-        return {
-          box: "border-green-200 bg-green-50",
-          icon: "bg-green-100 text-green-700",
-          text: "text-green-800",
-        };
-
-      case "TAMPERED":
-        return {
-          box: "border-red-200 bg-red-50",
-          icon: "bg-red-100 text-red-700",
-          text: "text-red-800",
-        };
-
-      case "REVOKED":
-        return {
-          box: "border-orange-200 bg-orange-50",
-          icon: "bg-orange-100 text-orange-700",
-          text: "text-orange-800",
-        };
-
       default:
         return {
-          box: "border-[#BDDDFC] bg-[#f8fbff]",
-          icon: "bg-[#BDDDFC] text-[#384959]",
-          text: "text-[#384959]",
+          title: "Certificate Not Found",
+          description:
+            "No registered certificate could be matched with the supplied document.",
+          icon: HelpCircle,
+          className:
+            "border-slate-200 bg-slate-50 text-slate-700",
         };
     }
   }
 
-  const resultStyles = getResultStyles();
+  const resultConfig = result
+    ? getResultConfig(result.result)
+    : null;
 
   return (
     <div className="h-screen overflow-hidden bg-[#f8fbff] text-[#384959]">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <header className="h-20 shrink-0 bg-white border-b border-[#BDDDFC] px-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="w-10 h-10 rounded-xl border border-[#BDDDFC] flex items-center justify-center hover:bg-[#f3f8fd]"
-              aria-label="Back"
-            >
-              <ArrowLeft size={20} />
-            </button>
+      <div className="flex h-full flex-col">
+        {/* Navbar */}
+        <header className="flex h-20 shrink-0 items-center justify-between border-b border-[#BDDDFC] bg-white px-6 lg:px-10">
+          <button
+            type="button"
+            onClick={() =>
+              (window.location.href = "/")
+            }
+            className="flex items-center gap-3"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#384959]">
+              <ShieldCheck
+                size={22}
+                style={{
+                  color: "#ffffff",
+                }}
+              />
+            </div>
 
-            <div>
-              <h1 className="text-2xl font-bold">
-                Verify Certificate
+            <div className="text-left">
+              <h1 className="text-lg font-bold">
+                CertiChain
               </h1>
-
-              <p className="text-sm text-[#6A89A7]">
-                Verify certificate authenticity using CertiChain
+              <p className="text-xs text-[#6A89A7]">
+                Certificate Verification
               </p>
             </div>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-2 text-sm font-medium text-[#6A89A7]">
-            <ShieldCheck size={19} />
-            Public Verification
-          </div>
+          <a
+            href="/login"
+            className="rounded-xl border border-[#BDDDFC] bg-white px-4 py-2.5 text-sm font-semibold text-[#384959] transition hover:bg-[#f8fbff]"
+          >
+            Admin / Student Login
+          </a>
         </header>
 
         {/* Main */}
-        <main className="flex-1 flex items-center justify-center px-6 py-6">
-          <div className="w-full max-w-5xl grid grid-cols-2 gap-6">
-            {/* ID Verification */}
-            <section className="bg-white border border-[#BDDDFC] rounded-2xl shadow-sm p-7">
-              <div className="w-12 h-12 rounded-xl bg-[#BDDDFC]/60 flex items-center justify-center text-[#384959] mb-5">
-                <Search size={23} />
-              </div>
+        <main className="min-h-0 flex-1 overflow-auto px-6 py-6 lg:px-10 lg:py-8">
+          <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
+            {/* Verification form */}
+            <section className="rounded-2xl border border-[#BDDDFC] bg-white p-6 shadow-sm lg:p-8">
+              <div className="mb-7">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#BDDDFC]/60 text-[#384959]">
+                  <FileCheck2 size={24} />
+                </div>
 
-              <h2 className="text-xl font-bold">
-                Verify by Certificate ID
-              </h2>
+                <h2 className="text-2xl font-bold">
+                  Verify a Certificate
+                </h2>
 
-              <p className="text-sm text-[#6A89A7] mt-2 mb-6">
-                Enter the certificate ID to check its registration
-                and current blockchain status.
-              </p>
-
-              <label
-                htmlFor="certificateId"
-                className="block text-sm font-semibold mb-2"
-              >
-                Certificate ID
-              </label>
-
-              <input
-                id="certificateId"
-                type="text"
-                value={certificateId}
-                onChange={(event) =>
-                  setCertificateId(event.target.value)
-                }
-                placeholder="CERT-2026-000123"
-                className="w-full h-12 rounded-xl border border-[#BDDDFC] px-4 outline-none focus:border-[#6A89A7] focus:ring-2 focus:ring-[#88BDF2]/30"
-              />
-
-              <button
-                type="button"
-                onClick={handleIdVerification}
-                disabled={loadingId || loadingFile}
-                className="w-full h-12 mt-4 rounded-xl bg-[#384959] hover:bg-[#2f3e4c] disabled:opacity-60 font-semibold flex items-center justify-center gap-2"
-                style={{ color: "#ffffff" }}
-              >
-                <Search size={18} />
-
-                {loadingId
-                  ? "Checking..."
-                  : "Verify Certificate"}
-              </button>
-
-              <div className="mt-5 rounded-xl bg-[#f8fbff] border border-[#BDDDFC] p-4">
-                <p className="text-xs font-semibold text-[#6A89A7]">
-                  What is checked?
-                </p>
-
-                <p className="text-sm mt-1">
-                  Certificate registration and blockchain status.
+                <p className="mt-2 text-sm leading-6 text-[#6A89A7]">
+                  Upload the original certificate PDF.
+                  You may also provide the Certificate ID
+                  if available.
                 </p>
               </div>
-            </section>
 
-            {/* PDF Verification */}
-            <section className="bg-white border border-[#BDDDFC] rounded-2xl shadow-sm p-7">
-              <div className="w-12 h-12 rounded-xl bg-[#BDDDFC]/60 flex items-center justify-center text-[#384959] mb-5">
-                <Upload size={23} />
-              </div>
-
-              <h2 className="text-xl font-bold">
-                Verify Certificate PDF
-              </h2>
-
-              <p className="text-sm text-[#6A89A7] mt-2 mb-6">
-                Upload the certificate PDF to compare its hash with
-                the registered document.
-              </p>
-
-              <label
-                htmlFor="certificateFile"
-                className="block text-sm font-semibold mb-2"
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5"
               >
-                Certificate PDF
-              </label>
-
-              <label
-                htmlFor="certificateFile"
-                className="h-12 border border-dashed border-[#6A89A7] rounded-xl px-4 flex items-center gap-3 cursor-pointer hover:bg-[#f8fbff]"
-              >
-                <FileCheck2
-                  size={19}
-                  className="text-[#6A89A7]"
-                />
-
-                <span className="text-sm truncate">
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Choose a PDF file"}
-                </span>
-
-                <input
-                  id="certificateFile"
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={handleFileVerification}
-                disabled={
-                  loadingFile ||
-                  loadingId ||
-                  !selectedFile
-                }
-                className="w-full h-12 mt-4 rounded-xl bg-[#6A89A7] hover:bg-[#5d7c99] disabled:opacity-60 font-semibold flex items-center justify-center gap-2"
-                style={{ color: "#ffffff" }}
-              >
-                <Upload size={18} />
-
-                {loadingFile
-                  ? "Checking PDF..."
-                  : "Verify PDF"}
-              </button>
-
-              <div className="mt-5 rounded-xl bg-[#f8fbff] border border-[#BDDDFC] p-4">
-                <p className="text-xs font-semibold text-[#6A89A7]">
-                  What is checked?
-                </p>
-
-                <p className="text-sm mt-1">
-                  PDF SHA-256 hash against the registered hash.
-                </p>
-              </div>
-            </section>
-
-            {/* Error */}
-            {error && (
-              <div className="col-span-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Result */}
-            {result && (
-              <section
-                className={`col-span-2 rounded-2xl border p-6 ${resultStyles.box}`}
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center ${resultStyles.icon}`}
+                {/* Certificate ID */}
+                <div>
+                  <label
+                    htmlFor="certificate-id"
+                    className="mb-2 block text-sm font-semibold"
                   >
-                    {result.result === "AUTHENTIC" ? (
-                      <CheckCircle2 size={26} />
-                    ) : (
-                      <ShieldAlert size={26} />
-                    )}
-                  </div>
+                    Certificate ID
+                    <span className="ml-1 font-normal text-[#6A89A7]">
+                      (optional)
+                    </span>
+                  </label>
 
-                  <div className="flex-1">
-                    <p
-                      className={`text-xl font-bold ${resultStyles.text}`}
-                    >
-                      {getResultTitle()}
-                    </p>
+                  <input
+                    id="certificate-id"
+                    type="text"
+                    value={certificateId}
+                    onChange={(event) =>
+                      setCertificateId(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="e.g. CERT-2026-001"
+                    className="w-full rounded-xl border border-[#BDDDFC] px-4 py-3 text-sm outline-none transition focus:border-[#6A89A7] focus:ring-2 focus:ring-[#88BDF2]/30"
+                  />
+                </div>
 
-                    <p className="text-sm mt-1">
-                      {getResultDescription()}
-                    </p>
+                {/* PDF */}
+                <div>
+                  <label
+                    htmlFor="verify-file"
+                    className="mb-2 block text-sm font-semibold"
+                  >
+                    Certificate PDF
+                  </label>
 
-                    <div className="grid grid-cols-4 gap-4 mt-5">
-                      <div>
-                        <p className="text-xs text-[#6A89A7]">
-                          Certificate ID
-                        </p>
-                        <p className="font-semibold text-sm mt-1">
-                          {result.certificateId}
-                        </p>
-                      </div>
-
-                      {"studentName" in result &&
-                        result.studentName && (
-                          <div>
-                            <p className="text-xs text-[#6A89A7]">
-                              Student
-                            </p>
-                            <p className="font-semibold text-sm mt-1">
-                              {result.studentName}
-                            </p>
-                          </div>
-                        )}
-
-                      {"courseName" in result &&
-                        result.courseName && (
-                          <div>
-                            <p className="text-xs text-[#6A89A7]">
-                              Course
-                            </p>
-                            <p className="font-semibold text-sm mt-1">
-                              {result.courseName}
-                            </p>
-                          </div>
-                        )}
-
-                      {"issueDate" in result &&
-                        result.issueDate && (
-                          <div>
-                            <p className="text-xs text-[#6A89A7]">
-                              Issue Date
-                            </p>
-                            <p className="font-semibold text-sm mt-1">
-                              {result.issueDate}
-                            </p>
-                          </div>
-                        )}
+                  <label
+                    htmlFor="verify-file"
+                    className="flex cursor-pointer items-center gap-4 rounded-xl border border-dashed border-[#6A89A7] bg-[#f8fbff] p-5 transition hover:bg-[#BDDDFC]/30"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#BDDDFC]/60">
+                      <Upload size={20} />
                     </div>
 
-                    {"uploadedHash" in result && (
-                      <div className="grid grid-cols-2 gap-4 mt-5">
-                        <div>
-                          <p className="text-xs text-[#6A89A7]">
-                            Uploaded Hash
-                          </p>
-                          <p className="text-xs font-mono mt-1 break-all">
-                            {result.uploadedHash}
-                          </p>
-                        </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {file
+                          ? file.name
+                          : "Select certificate PDF"}
+                      </p>
 
-                        <div>
-                          <p className="text-xs text-[#6A89A7]">
-                            Registered Hash
-                          </p>
-                          <p className="text-xs font-mono mt-1 break-all">
-                            {result.registeredHash}
-                          </p>
+                      <p className="mt-1 text-xs text-[#6A89A7]">
+                        PDF files only
+                      </p>
+                    </div>
+                  </label>
+
+                  <input
+                    id="verify-file"
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(event) => {
+                      setFile(
+                        event.target.files?.[0] ??
+                          null,
+                      );
+                    }}
+                  />
+                </div>
+
+                {error && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#384959] px-5 py-3.5 text-sm font-semibold transition hover:bg-[#6A89A7] disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    color: "#ffffff",
+                  }}
+                >
+                  <Search size={18} />
+
+                  {loading
+                    ? "Verifying..."
+                    : "Verify Certificate"}
+                </button>
+              </form>
+
+              <div className="mt-6 rounded-xl bg-[#BDDDFC]/30 p-4">
+                <p className="text-xs leading-5 text-[#6A89A7]">
+                  Verification compares the uploaded
+                  certificate against the certificate
+                  registered by CertiChain.
+                </p>
+              </div>
+            </section>
+
+            {/* Result */}
+            <section className="rounded-2xl border border-[#BDDDFC] bg-white p-6 shadow-sm lg:p-8">
+              {!result ? (
+                <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#BDDDFC]/50 text-[#6A89A7]">
+                    <ShieldCheck size={30} />
+                  </div>
+
+                  <h3 className="mt-5 text-xl font-bold">
+                    Verification Result
+                  </h3>
+
+                  <p className="mt-2 max-w-sm text-sm leading-6 text-[#6A89A7]">
+                    Your certificate verification result
+                    will appear here after you upload a
+                    PDF.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {resultConfig &&
+                    (() => {
+                      const Icon =
+                        resultConfig.icon;
+
+                      return (
+                        <div
+                          className={`rounded-2xl border p-5 ${resultConfig.className}`}
+                        >
+                          <div className="flex items-start gap-4">
+                            <Icon
+                              size={28}
+                              className="mt-0.5 shrink-0"
+                            />
+
+                            <div>
+                              <h3 className="text-xl font-bold">
+                                {resultConfig.title}
+                              </h3>
+
+                              <p className="mt-1 text-sm leading-6">
+                                {
+                                  resultConfig.description
+                                }
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
+
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#6A89A7]">
+                        Certificate ID
+                      </p>
+
+                      <p className="mt-1 break-all text-sm font-semibold">
+                        {result.certificateId ||
+                          "Not available"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#6A89A7]">
+                        Student
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold">
+                        {result.studentName ||
+                          "Not available"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#6A89A7]">
+                        Course
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold">
+                        {result.courseName ||
+                          "Not available"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#6A89A7]">
+                        Issue Date
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold">
+                        {result.issueDate ||
+                          "Not available"}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </section>
-            )}
+              )}
+            </section>
           </div>
         </main>
       </div>
